@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOS Record Form</title>
+<style>
+  /* ---------- 设计系统（参照司机端英文页风格：墨绿主色 + 米黄/淡蓝圆角卡片 + 胶囊按钮） ---------- */
+  :root{
+    --bg:#eef2ee;            /* 页面浅灰绿底 */
+    --card:#ffffff;          /* 白卡片 */
+    --cream:#fdf6e0;         /* 米黄强调卡片 */
+    --cream-line:#c9a227;    /* 米黄卡片金色描边 */
+    --blue:#eaf3fb;          /* 淡蓝提示卡片 */
+    --blue-ink:#1e3a5f;      /* 淡蓝卡片文字 */
+    --green:#1d4a38;         /* 墨绿主色（按钮/标题） */
+    --green-soft:#7d9b8a;    /* 弱绿（禁用/次级） */
+    --ink:#24312a;           /* 正文墨色 */
+    --ink-2:#5a6b60;         /* 次级文字 */
+    --gold:#a8842c;          /* 金褐强调 */
+    --danger:#b3392e;        /* 警示红 */
+    --radius:16px;           /* 卡片大圆角 */
+    --radius-sm:10px;        /* 输入框/小件圆角 */
+  }
+  *{ box-sizing:border-box; }
+  body{ font-family:'Nunito','PingFang SC','HarmonyOS Sans SC','MiSans','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;
+        margin:0; background:var(--bg); color:var(--ink); }
+  button{ font-family:inherit; }
+
+  /* ---------- page header (screen only) ---------- */
+  .pagehd{ background:var(--bg); color:var(--green); padding:14px 18px 10px; font-size:19px; font-weight:900; letter-spacing:.5px; }
+  .pagehd .brand{ color:var(--gold); }
+
+  /* ---------- toolbar (screen only) ---------- */
+  .toolbar{ position:sticky; top:0; z-index:50; background:var(--card); color:var(--ink); padding:12px 16px;
+            display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;
+            box-shadow:0 2px 10px rgba(29,74,56,.14); border-bottom:3px solid var(--green); }
+  .toolbar label{ font-size:12px; display:flex; flex-direction:column; gap:3px; font-weight:bold; color:var(--green); }
+  .toolbar input[type=text],.toolbar input[type=date],.toolbar select{ padding:7px 10px; border:1.5px solid #cfdcd4; border-radius:var(--radius-sm); background:#fff; color:var(--ink); font-size:13px; }
+  .toolbar input[type=text]:focus,.toolbar input[type=date]:focus,.toolbar select:focus{ outline:none; border-color:var(--green); }
+  .toolbar .chk{ flex-direction:row; align-items:center; gap:6px; font-size:13px; padding-bottom:6px; }
+  .btn{ padding:8px 16px; border:0; border-radius:999px; background:var(--green); color:#fff; font-size:13px; cursor:pointer; font-weight:bold; }
+  .btn:hover{ filter:brightness(1.15); }
+  .btn.ghost{ background:#fff; color:var(--green); border:1.5px solid var(--green); }
+  .btn.warn{ background:var(--gold); }
+  .savebar{ width:100%; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); }
+  .savebar .dot{ width:9px; height:9px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,.8); transition:background .2s; flex:none; }
+  .savebar .dot.dirty{ background:#f59e0b; box-shadow:0 0 6px rgba(245,158,11,.8); }
+  .hint{ width:100%; font-size:12px; color:var(--ink-2); line-height:1.55; background:var(--cream); border:1.5px dashed var(--cream-line);
+         border-radius:var(--radius-sm); padding:8px 12px; }
+  .hint b{ color:var(--green); }
+
+  /* ---------- printed sheet ---------- */
+  #sheet{ max-width:800px; margin:16px auto; background:#fff; padding:18px 20px 14px; border-radius:14px; box-shadow:0 2px 12px rgba(29,74,56,.16); }
+  .masthead{ display:flex; align-items:center; gap:9px; padding-bottom:2px; flex-wrap:wrap; }
+  .logo{ height:48px; width:auto; display:block; flex:none; }
+  .title{ font-size:16px; font-weight:900; letter-spacing:.4px; }
+  .subhead{ position:relative; height:17px; font-size:11.5px; font-weight:bold; margin:6px 0 8px; }
+  .subhead>span{ position:absolute; top:0; white-space:nowrap; }
+  /* x measured on 300dpi print: hour-line 14 = 370.8pt, 18 = 445.0pt from page edge;
+     sheet left edge = 22.68pt. C hugs the Parking underline right end (+3pt) and sits
+     left of "14"; M sits just left of "18"; Year keeps its original-form spot. */
+  .s-park{ left:152px; } .s-cycle{ left:452px; } .s-month{ left:556px; } .s-year{ left:658px; }
+  .fill{ display:inline-block; min-width:200px; border-bottom:1px solid #111; font-weight:normal; padding:0 4px; }
+  .fill.sm{ min-width:52px; text-align:center; }
+  .day-svg{ display:block; width:100%; margin:0 0 7px; }
+  /* weekend note: NO rectangle around the line in the original — only the small
+     square checkbox at the left is outlined. */
+  .wknd{ font-size:12.5px; font-weight:bold; margin:3px 0 8px; display:flex; gap:8px; align-items:center; width:fit-content; }
+  .wkbox{ display:inline-block; width:13px; height:13px; border:1.5px solid #111; text-align:center; line-height:12px; font-size:12px; }
+  .formfooter{ display:flex; justify-content:space-between; margin-top:16px; font-size:13px; font-weight:bold; flex-wrap:wrap; gap:8px; }
+  .sigline{ display:inline-block; min-width:250px; border-bottom:1px solid #111; font-weight:normal; padding:0 8px; }
+  .sig-holder{ position:relative; vertical-align:baseline; top:2px; }
+  .sigimg{ position:absolute; left:16px; right:0; bottom:-2px; height:22px; object-fit:contain; object-position:left bottom; }
+  .officecopy{ color:#e11; text-align:center; font-weight:900; letter-spacing:3px; font-size:13px; margin-top:10px; }
+
+  /* ---------- form tabs（HOS 表 / Extra Work 表切换） ---------- */
+  .tabs{ display:flex; gap:8px; }
+  .tab{ padding:8px 18px; border-radius:999px; border:1.5px solid var(--green); background:#fff; color:var(--green); font-size:13px; font-weight:bold; cursor:pointer; }
+  .tab.on{ background:var(--green); color:#fff; }
+
+  /* ---------- Extra Work sheet（横版周结算表） ---------- */
+  /* Extra Work 表 = letter 半高（宽度占满 letter 宽，一张 letter 竖向可放两张） */
+  #sheetExtra{ display:none; max-width:800px; margin:16px auto; background:#fff; padding:14px 20px 10px; border-radius:14px; box-shadow:0 2px 12px rgba(29,74,56,.16); }
+  body.mode-extra #sheet{ display:none; }
+  body.mode-extra #sheetExtra{ display:block; }
+  #edExtra{ display:none; }
+  body.mode-extra #edExtra{ display:block; }
+  body.mode-extra #edHos{ display:none; }
+
+  .xw-title{ font-size:16px; font-weight:900; margin:0 0 10px 0; letter-spacing:.3px; }
+  table.xw{ width:100%; border-collapse:collapse; }
+  table.xw th, table.xw td{ border:1px solid #000; padding:4px 8px; font-size:13px; vertical-align:middle; }
+  table.xw td.xemp{ font-weight:bold; font-size:14px; height:38px; }
+  table.xw .xname{ font-weight:normal; }
+  table.xw th{ font-size:13.5px; font-weight:bold; text-align:left; height:30px; }
+  table.xw tbody td{ height:30px; }
+  table.xw td.xtotlab{ text-align:right; font-size:13.5px; }
+  table.xw td.xgray{ background:#d9d9d9; text-align:center; font-size:13.5px; }
+  table.xw td.xsig{ height:38px; font-weight:bold; font-size:14px; }
+
+  /* ---------- editors (screen only) ---------- */
+  #editors{ max-width:800px; margin:0 auto 60px; padding:0 10px; }
+  .edithd{ font-size:14px; font-weight:900; color:var(--green); letter-spacing:.5px; margin:22px 2px 2px; }
+  .quickbar{ background:var(--cream); border:1.5px dashed var(--cream-line); border-radius:var(--radius); padding:12px 14px; margin:10px 0; }
+  .quickbar .qtitle{ font-size:13px; font-weight:900; color:var(--green); margin-bottom:8px; }
+  .quickbar .qrow{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .quickbar label{ font-size:12px; font-weight:bold; display:flex; flex-direction:column; gap:3px; color:var(--green); }
+  .quickbar select,.quickbar input[type=text]{ padding:7px 10px; border:1.5px solid #cfdcd4; border-radius:var(--radius-sm); font-size:14px; background:#fff; color:var(--ink); max-width:100%; }
+  .daycard{ background:var(--card); border-radius:var(--radius); margin:10px 0; padding:12px 14px; box-shadow:0 1px 6px rgba(29,74,56,.10); }
+  .daycard h3{ margin:0 0 8px; font-size:15px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; cursor:pointer; user-select:none; color:var(--green); }
+  .daycard h3 .sum{ font-size:12px; color:var(--ink-2); font-weight:normal; }
+  .daycard h3 .warn{ font-size:12px; color:var(--danger); font-weight:bold; }
+  .daycard h3 .caret{ margin-left:auto; color:var(--ink-2); font-size:13px; transition:transform .2s; }
+  .daycard.collapsed .caret{ transform:rotate(-90deg); }
+  .daycard .cardbody{ display:block; }
+  .daycard.collapsed .cardbody{ display:none; }
+  table.pd{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.pd th{ font-size:11px; color:var(--ink-2); text-align:left; padding:2px 4px; border-bottom:1px solid #dbe5de; font-weight:bold; letter-spacing:.4px; }
+  table.pd td{ padding:3px 4px; }
+  table.pd select, table.pd input[type=text]{ padding:4px 6px; border:1.5px solid #cfdcd4; border-radius:8px; font-size:13px; background:#fff; color:var(--ink); }
+  table.pd input.rk{ width:150px; }
+  .chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .chip{ padding:5px 12px; border-radius:999px; border:1.5px solid var(--green-soft); background:#fff; font-size:12px; cursor:pointer; color:var(--green); font-weight:bold; }
+  .chip:hover{ background:var(--cream); border-color:var(--cream-line); }
+  .rowbtns{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .mini{ padding:5px 14px; font-size:12px; border:0; border-radius:999px; cursor:pointer; background:var(--green); color:#fff; font-weight:bold; }
+  .mini.gray{ background:var(--green-soft); }
+  .mini.red{ background:var(--danger); padding:4px 12px; }
+  .offnote{ font-size:12.5px; color:var(--blue-ink); background:var(--blue); border-radius:var(--radius-sm); padding:10px 12px; }
+
+  /* ---------- signature modal (screen only) ---------- */
+  .sig-modal{ position:fixed; inset:0; background:rgba(29,49,40,.55); z-index:100; display:none; align-items:center; justify-content:center; padding:16px; }
+  .sig-modal.open{ display:flex; }
+  .sig-card{ background:#fff; border-radius:20px; padding:18px 20px; width:min(640px, calc(100vw - 32px)); box-shadow:0 10px 40px rgba(0,0,0,.4); }
+  .sig-card h3{ margin:0 0 4px; font-size:17px; color:var(--green); }
+  .sig-card p{ margin:0 0 10px; font-size:12.5px; color:var(--ink-2); }
+  .sig-canvas-wrap{ border:2px dashed var(--cream-line); border-radius:var(--radius-sm); background:#fdfcf7; touch-action:none; }
+  .sig-canvas-wrap canvas{ display:block; width:100%; height:200px; cursor:crosshair; }
+  .sig-btns{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+
+  /* @page 由 <style id="pageRule"> 动态注入：HOS=Letter 纵向，Extra Work=Letter 纵向（表高约半张） */
+  @media print{
+    body{ background:#fff; }
+    .no-print{ display:none !important; }
+    #sheet{ max-width:none; margin:0; box-shadow:none; border-radius:0; padding:0 !important; overflow:visible !important; }
+    /* 手机打印缓冲：温和收紧 footer 区留白（左右 @page 边距不动，SVG 宽高不变，
+       不破坏像素对齐；底边距 5mm + 收紧的留白合计 ~27pt 额外缓冲，
+       吸收手机打印页眉页脚/边距差异，确保 OFFICE COPY 稳定在第 1 页） */
+    .masthead{ margin-bottom:1px; }
+    .subhead{ margin:2px 0 4px; }
+    .day-svg{ margin-bottom:2px; }
+    .wknd{ margin:1px 0 2px; font-size:11.5px; }
+    .formfooter{ margin-top:10px; }
+    .officecopy{ margin-top:1px; }
+    /* 打印兜底：无论屏幕是手机还是桌面，打印介质一律走桌面等比路径——
+       撤销移动端 min-width/固定宽度，SVG 恢复 width:100% 撑满可打印区，
+       保证 Android「保存为 PDF」输出完整不裁切、仍为 1 页。 */
+    #sheet .masthead, #sheet .subhead, #sheet .day-svg, #sheet .wknd, #sheet .formfooter, #sheet .officecopy{ min-width:0 !important; }
+    .day-svg{ width:100% !important; }
+    /* Extra Work 打印：纵向 Letter，表高约半张（一张纸可放两张），宽度铺满可打印区 */
+    #sheetExtra{ max-width:none; margin:0; box-shadow:none; border-radius:0; padding:14px 20px 10px !important; }
+    .xw-title{ margin:0 0 10px 0; }
+  }
+
+  /* ---------- 移动端（手机现场录入优化） ----------
+     原则：手机以「录入」为核心，预览表可横向滑动查看原比例（不缩成蚂蚁）。
+     打印/出 PDF 仍走系统打印，@page 的 Letter 尺寸在桌面打印时生效。
+     必须限定 screen：打印介质绝不能命中移动端规则（否则 sheet 内边距
+     会挤窄 SVG，打印变 2 页——已用像素级 PDF 对比验证过）。 */
+  @media screen and (max-width:768px){
+    /* 顶栏：改为随页滚动（手机上 sticky 顶栏叠 ~400px 高，录入时一直挡屏幕） */
+    .toolbar{ position:static; padding:10px; gap:8px; align-items:stretch; }
+    .toolbar label{ font-size:14px; flex:1 1 100%; }
+    .toolbar input[type=text],.toolbar input[type=date],.toolbar select{ font-size:16px; padding:10px 8px; width:100%; }
+    .toolbar .chk{ font-size:15px; padding:8px 0; }
+    .btn{ font-size:15px; padding:12px 8px; min-height:46px; }
+    /* 按钮组用 grid 两列排布，避免横排溢出 */
+    #btnPrint{ width:100%; }
+    .savebar{ font-size:12px; }
+    .hint{ font-size:12px; }
+
+    /* 页面顺序重排：工具栏 → 录入编辑区 → 预览表。
+       司机在手机上的核心动作是录时段，不该滚过整张预览表才够到录入区。
+       （sheetExtra 是 Extra Work 的预览容器，同样排到编辑区之后） */
+    body{ display:flex; flex-direction:column; }
+    #editors{ order:1; }
+    #sheet{ order:2; }
+    #sheetExtra{ order:2; }
+
+    /* 预览表：横向滚动查看原比例，不被压扁 */
+    #sheet{ max-width:none; margin:8px 0; padding:12px 8px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    /* 让 sheet 内固定宽度的表格/SVG 保持 800px 原宽，外层横向滚 */
+    #sheet .masthead, #sheet .subhead, #sheet .day-svg, #sheet .wknd, #sheet .formfooter, #sheet .officecopy{
+      min-width:760px;
+    }
+    .day-svg{ width:760px; }
+
+    /* 编辑区：放大触控 */
+    #editors{ padding:0 8px 40px; }
+    .daycard{ padding:12px; }
+    .daycard h3{ font-size:16px; }
+    table.pd{ font-size:15px; }
+    table.pd select, table.pd input[type=text]{ font-size:16px; padding:8px 6px; min-height:42px; }
+
+    /* 时段表格：手机上保持原生表格布局（Chrome 对表格内部做 grid 化重排
+       会产生不可靠的布局错乱——已用隔离截图证实），改为卡片内横向滑动。
+       列宽显式收窄，让开始/结束尽量落在首屏，备注/删除右滑可达。 */
+    .daycard{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table.pd{ min-width:560px; }
+    table.pd th{ white-space:nowrap; padding:4px; }
+    table.pd td{ padding:4px; }
+    table.pd select, table.pd input[type=text]{ min-height:42px; font-size:16px; }
+    table.pd td:nth-child(1) select{ width:170px; }
+    table.pd td:nth-child(2) select, table.pd td:nth-child(3) select{ width:96px; }
+    table.pd input.rk{ width:140px; min-width:0; }
+
+    .chip{ font-size:14px; padding:10px 14px; }
+    .mini{ font-size:14px; padding:10px 14px; min-height:42px; }
+
+    /* 快捷录入条：事项(短) + 开始 + 结束 一行，按钮按内容宽度自适应；
+       手机上放不下时按钮自然换到第二行，但宽度收缩为内容宽（不铺满 100%，避免过宽），
+       时间下拉框收紧为紧凑宽度，绝不横向溢出。 */
+    .quickbar .qrow{ flex-direction:row; flex-wrap:wrap; align-items:flex-end; gap:6px; }
+    .quickbar label{ flex:0 1 auto; min-width:0; }
+    .quickbar label:nth-child(1){ flex:0 0 auto; }
+    .quickbar label:nth-child(2), .quickbar label:nth-child(3){ flex:0 1 auto; min-width:0; }
+    .quickbar select{ max-width:100%; min-width:0; width:100%; font-size:16px; min-height:44px; padding:8px 6px; }
+    .quickbar .qrow .btn{ flex:0 1 auto; min-width:0; white-space:nowrap; padding:12px 16px; font-size:15px; }
+
+    /* 签名弹窗：触屏优化 + 矮屏居中（max-height 防超屏，内部可滚）。
+       宽度用 calc(100vw - 32px) 而非 94vw：modal 自带 padding:16px×2，
+       94vw+32px 在 ≤430px 窄屏上会溢出视口，flex 居中溢出时右侧被硬裁（偏左假象）。 */
+    .sig-card{ width:auto; max-width:calc(100vw - 32px); padding:14px; max-height:86vh; overflow:auto; }
+    .sig-canvas-wrap canvas{ height:200px; }
+    .sig-btns .btn{ flex:1; }
+
+    /* 表单切换页签：全宽大触控（字号收敛防「Extra Work 表」溢出截断） */
+    .tabs{ width:100%; }
+    .tab{ flex:1; padding:12px 4px; font-size:13.5px; min-height:44px; white-space:nowrap; }
+
+    /* Extra Work 预览：半宽小表居中（原扫描件即半张 letter），窄屏可横滑 */
+    #sheetExtra{ max-width:420px; margin:8px auto; padding:12px 8px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    #sheetExtra .xw-title{ min-width:380px; }
+    table.xw{ min-width:380px; }
+    table.xw th, table.xw td{ font-size:13px; }
+    table.xw td.xemp{ font-size:13px; }
+    /* Extra 编辑表：卡片内横滑（复用 table.pd），7 列稍宽 */
+    #edExtra table.pd{ min-width:720px; }
+    #edExtra table.pd td:nth-child(1) select{ width:120px; }
+    #edExtra table.pd td:nth-child(2) select{ width:150px; }
+    #edExtra table.pd input.rk{ width:170px; }
+  }
+</style>
+<style id="pageRule">@page{ size:Letter portrait; margin:8mm 8mm 5mm; }</style>
+</head>
+<body>
+
+<header class="pagehd no-print"><span class="brand">■</span> <span id="pagehdTitle">HOS Record Form</span></header>
+
+<header class="toolbar no-print" id="toolbar">
+  <div class="tabs">
+    <button class="tab on" id="tabHos" type="button">HOS 表</button>
+    <button class="tab" id="tabExtra" type="button">Extra Work 表</button>
+  </div>
+  <label>周起始日（自动取周一）<input type="date" id="weekStart"></label>
+  <label>司机姓名（Print Name）<input type="text" id="driver" placeholder="如: 张三"></label>
+  <label>停车地点（Parking Location）
+    <select id="location">
+      <option value="801 Rodick Rd, Markham, Ont">801 Rodick Rd, Markham, Ont</option>
+      <option value="24 Cardico Dr, Gormley, Ont">24 Cardico Dr, Gormley, Ont</option>
+      <option value="479 Edward Ave, Richmond Hill, Ont">479 Edward Ave, Richmond Hill, Ont</option>
+      <option value="5511 Bloomington Rd, Whitchurch-Stouffville, Ont">5511 Bloomington Rd, Whitchurch-Stouffville, Ont</option>
+      <option value="__other__">Other（自填）</option>
+    </select>
+    <input type="text" id="locationOther" placeholder="录入 Parking 地址" style="display:none;margin-top:4px;min-width:230px">
+  </label>
+  <label class="chk"><input type="checkbox" id="weekendOff"> 周六/周日全天休班</label>
+  <button class="btn" id="btnPrint">🖨 打印</button>
+  <button class="btn ghost" id="btnExample">加载示例</button>
+  <button class="btn ghost" id="btnExportJson">导出JSON</button>
+  <button class="btn ghost" id="btnImport">导入JSON</button>
+  <button class="btn ghost" id="btnExportCsv">导出CSV</button>
+  <button class="btn ghost" id="btnSign">✍ 签名</button>
+  <button class="btn warn" id="btnClear">清空本周</button>
+  <div class="savebar" id="saveBar"><span id="saveDot"></span><span id="saveText">读取中…</span></div>
+  <div class="hint">
+    用法：选周 → 在下方编辑区录入每天时段（时间自动按 15 分钟取整，未覆盖时间自动记 Off-Duty，右侧合计自动生成）→ 打印。
+    pre-trip / yard-mech / fuel 属于 On-Duty-Not Driving，用备注区分。改动实时保存在本机浏览器。
+    ⚠ HOS 为法定记录：打印后请司机核对并<b>手写签名</b>，时段须与实际一致。<br>
+    「Extra Work 表」：记录加班时段（10 分钟间隔，按周汇总，Total Hours 以小时计），签名与 HOS 共用。<br>
+    💾 无纸化：打印时可选择 <b>Save as PDF…</b>（另存为 PDF）生成电子档，nopaper。
+  </div>
+</header>
+
+<div id="sheet"></div>
+<div id="sheetExtra"></div>
+<section id="editors" class="no-print">
+  <div id="edHos"></div>
+  <div id="edExtra"></div>
+</section>
+<input type="file" id="importFile" accept=".json,application/json" style="display:none">
+
+<div class="sig-modal no-print" id="sigModal">
+  <div class="sig-card">
+    <h3>手写签名</h3>
+    <p>用鼠标或触控板在下方画出签名，点「完成」贴入表格签名栏。</p>
+    <div class="sig-canvas-wrap"><canvas id="sigCanvas"></canvas></div>
+    <div class="sig-btns">
+      <button class="btn ghost" id="btnSigClear">清除</button>
+      <button class="btn ghost" id="btnSigCancel">取消</button>
+      <button class="btn" id="btnSigDone">完成</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= constants & helpers ================= */
+const KEY = 'hosGenerator.v1';
+const BACKUP_KEY = 'hosGenerator.backups.v1';
+const MAX_BACKUPS = 8;          // 最多保留最近 8 周的备份快照
+let lastSavedAt = null;         // 最近一次成功写入 localStorage 的时间戳
+let expandedDays = new Set();   // 用户手动展开的日卡（day index），renderAll 重建后保持展开，不被"仅今天展开"规则折叠回去
+const WD_EN = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+const WD_CN = ['周一','周二','周三','周四','周五','周六','周日'];
+const TYPE_LABEL = { D:'Driving（行车）', OND:'On-Duty-Not Driving（工作未驾驶）' };
+const TYPE_EN    = { D:'Driving', OND:'On-Duty-Not Driving' };
+/* Column layout measured on the original blank form (600dpi):
+   Date 216px : Duty 514px : grid 3742px : Totals 281px  (block 4753px = 830u)
+   -> Date 38u : Duty 90u : grid 654u : Totals 48u. Hour = 27.25u, quarter CW = 6.8125u. */
+const GX=128, CW=654/96;                   // grid left x, quarter-cell width
+const GRID_W=654;                          // 24h * 27.25u/h
+/* Totals column starts AT the 24:00 line (its left border) — verified on source PDF:
+   no blank tail; runs full height (values + daily "24" cell in the Remarks row). */
+const TOT_W=48;
+const R_EDGE=GX+GRID_W;                    // 24:00 line == Totals column left border = 782
+const VB_W=R_EDGE+TOT_W;                   // viewBox width = 830
+const TOT_MID=R_EDGE+TOT_W/2;              // Totals column center = 806
+/* ROW_Y (status row centers) is computed inside daySVG from the block geometry */
+
+function mondayOf(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtT(m){ const h=Math.floor(m/60), mm=m%60; return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'); } // 1440 -> "24:00"
+/* 12 小时制 AM/PM：360 -> "6:00 AM"，810 -> "1:30 PM"（Extra Work 表 Start/End time 用） */
+function fmtT12(m){ let h=Math.floor(m/60), mm=m%60; const ap=(h>=12)?'PM':'AM'; h=h%12; if(h===0) h=12; return h+':'+String(mm).padStart(2,'0')+' '+ap; }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* quarters -> form style: 24 -> "24", 19 -> "19", 2 -> ".5", 1 -> ".25" */
+function fmtH(q){ const h=q/4; if(Number.isInteger(h)) return String(h); if(h<1) return ({1:'.25',2:'.5',3:'.75'})[q]; return String(h); }
+function fmtHn(q){ return String(q/4); } // normal style for editor summary
+
+function timeOptions(){ let o=''; for(let m=0;m<=1440;m+=15){ o+='<option value="'+m+'">'+fmtT(m)+'</option>'; } return o; }
+const TIME_OPTS = timeOptions();
+/* Extra Work 用 10 分钟间隔（05:00–23:50），覆盖 run 时间的延伸段；显示 12h AM/PM */
+const XTIME_OPTS = (()=>{ let o=''; for(let m=300;m<=1430;m+=10){ o+='<option value="'+m+'">'+fmtT12(m)+'</option>'; } return o; })();
+/* 分钟 -> "h:mm"（如 20min -> "0:20"，90min -> "1:30"） */
+function fmtHM(min){ min=Math.max(0,Math.round(min)); return Math.floor(min/60)+':'+String(min%60).padStart(2,'0'); }
+/* 分钟 -> 小时（Extra Work 的 Total Hours 以小时计，如 20min -> "0.33"，90min -> "1.5"） */
+function fmtHrs(min){ min=Math.max(0,Math.round(min)); const h=min/60; return (Math.round(h*100)/100).toString(); }
+/* Extra Work 事项预设：Morning Run / Afternoon Run 作为快捷填入项，其余直接录入 */
+
+/* 本周 7 天的 ISO 日期集合（extra 行按日期归属本周，换周数据保留） */
+function inWeekDates(){ const ws=new Date(state.weekStart+'T00:00:00'); return new Set(Array.from({length:7},(_,i)=>iso(addDays(ws,i)))); }
+/* '2026-09-21' -> '09/21' */
+function fd(s){ const p=String(s).split('-'); return (p[1]||'')+'/'+(p[2]||''); }
+
+/* ================= state ================= */
+function defaultState(){
+  const m = mondayOf(new Date());
+  return { weekStart:iso(m), driver:'', location:'801 Rodick Rd, Markham, Ont', weekendOff:true,
+           signature:'',   // 手写签名 dataURL（PNG），随 localStorage 持久化（HOS 与 Extra Work 共用）
+           empNo:'',       // Extra Work 表的 Employee Number
+           extra:[],       // Extra Work 明细：{d:'YYYY-MM-DD', desc:''(描述，默认空), s:分钟, e:分钟}
+           mode:'hos',     // 当前表单页签：'hos' | 'extra'
+           days:Array.from({length:7},(_,i)=>({date:iso(addDays(m,i)), periods:[]})) };
+}
+let state = defaultState();
+function load(){
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY));
+    if(s && Array.isArray(s.days) && s.days.length===7){
+      state=Object.assign(defaultState(),s);
+      // 默认值迁移：旧版本默认停车地点是 24 Cardico，现改为 801 Rodick。
+      // 若读回的 location 仍是旧默认串（说明用户从未主动改过），迁移到新默认值；
+      // 用户若确实手动选了 24，重选一次即可（select 仍保留该选项）。
+      if(state.location==='24 Cardico Dr, Gormley, Ont') state.location='801 Rodick Rd, Markham, Ont';
+      if(!Array.isArray(state.extra)) state.extra=[];           // 旧数据无 extra 字段
+      // Extra 数据迁移（归一化历史格式到当前：desc=最终描述文本，默认空）：
+      state.extra.forEach(r=>{
+        if(r.detail){ r.desc=r.detail; delete r.detail; }            // 上一版 detail 是司机录入的描述
+        delete r.detail;
+        let d=(r.desc||'');
+        // 清洗历史脏拼接：「Morning Running — xxx」「Afternoon Running — xxx」
+        d=d.replace(/^(Morning|Afternoon) Running\s*(—|—|[-])\s*/, '');
+        // 去 ing 后缀（纯 Morning Running → Morning Run）
+        if(d==='Morning Running') d='Morning Run';
+        else if(d==='Afternoon Running') d='Afternoon Run';
+        // 早期版本的 xadd 预填值「Morning Run / Afternoon Run」清空（默认空白）
+        if(d==='Morning Run' || d==='Afternoon Run') d='';
+        r.desc=d;
+        delete r.custom;
+      });
+      if(state.mode!=='extra') state.mode='hos';                 // mode 防御
+      // 跨周自动前滚：若存档的 weekStart 早于「当周周一」，说明已进入新的一周，
+      // 自动跳到当周（旧周数据仍保留在各周备份里），否则永远停在首次创建那一周。
+      const thisMon = mondayOf(new Date());
+      const curMon = new Date(state.weekStart+'T00:00:00');
+      if(curMon.getTime() < thisMon.getTime()){
+        state.weekStart = iso(thisMon);
+        state.days = Array.from({length:7},(_,i)=>({date:iso(addDays(thisMon,i)),periods:[]}));
+      }
+      lastSavedAt = s._savedAt ? new Date(s._savedAt) : null;
+    }
+  }catch(e){}
+}
+function save(){
+  try{
+    state._savedAt = new Date().toISOString();
+    localStorage.setItem(KEY, JSON.stringify(state));
+    lastSavedAt = new Date(state._savedAt);
+    // 滚动备份：按周起始日存快照，供"误清空/被下周覆盖"时找回
+    try{
+      let backups={};
+      try{ backups=JSON.parse(localStorage.getItem(BACKUP_KEY))||{}; }catch(e){}
+      backups[state.weekStart]=state;
+      const keys=Object.keys(backups).sort().reverse();   // 最新周在前
+      const keep={}; keys.slice(0,MAX_BACKUPS).forEach(k=>keep[k]=backups[k]);
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(keep));
+    }catch(e){}
+  }catch(e){}
+  flashSaved();
+}
+/* 状态条：保存成功闪绿点 + 更新时间；写入失败亮橙点提示 */
+function flashSaved(){
+  const dot=document.getElementById('saveDot'), txt=document.getElementById('saveText');
+  if(!dot||!txt) return;
+  if(lastSavedAt){
+    const t=lastSavedAt; const p=n=>String(n).padStart(2,'0');
+    txt.textContent='已自动保存 · '+(t.getMonth()+1)+'/'+t.getDate()+' '+p(t.getHours())+':'+p(t.getMinutes())+':'+p(t.getSeconds())+'（本机浏览器，清缓存会丢，建议每日导出备份）';
+    dot.classList.remove('dirty');
+  }else{
+    txt.textContent='⚠ 保存失败：浏览器禁用了本地存储，请改用「导出JSON」手动备份';
+    dot.classList.add('dirty');
+  }
+}
+
+/* ================= core logic ================= */
+/* Build the full 24h status timeline. Anything not covered by a D/OND period is Off-Duty. */
+function buildSegs(day, weekendOff, isWeekendDay){
+  const warns=[];
+  if(weekendOff && isWeekendDay) return { segs:[{t:'OFF',s:0,e:1440,r:''}], warns, tq:{OFF:96,D:0,OND:0} };
+  const evs=(day.periods||[]).filter(p=>p.e>p.s).slice().sort((a,b)=>a.s-b.s || a.e-b.e);
+  const segs=[]; let cur=0;
+  for(const p of evs){
+    if(p.s<cur) warns.push('存在重叠/交错的时段，已自动按时间先后截断，请检查');
+    const s=Math.max(p.s,cur), e=Math.max(p.e,cur);
+    if(e>s){
+      if(s>cur) segs.push({t:'OFF',s:cur,e:s,r:''});
+      const last=segs[segs.length-1];
+      if(last && last.t===p.t && last.e===s){ last.e=e; if(p.r) last.r=(last.r?last.r+' / ':'')+p.r; }
+      else segs.push({t:p.t,s,e,r:p.r||''});
+      cur=e;
+    }
+  }
+  if(cur<1440) segs.push({t:'OFF',s:cur,e:1440,r:''});
+  const tq={OFF:0,D:0,OND:0};
+  segs.forEach(g=>tq[g.t]+= (g.e-g.s)/15);
+  if(tq.D>52) warns.push('行车 '+fmtHn(tq.D)+'h，超过 13 小时参考上限');
+  if(tq.D+tq.OND>56) warns.push('勤务合计 '+fmtHn(tq.D+tq.OND)+'h，超过 14 小时参考上限');
+  return { segs, warns, tq };
+}
+
+/* ================= SVG of one day block ================= */
+/* Geometry replicated from the original blank form (pixel-measured):
+   block aspect ≈ 830:130 (original ≈ 570pt:90.8pt ≈ 6.3:1), header band 17u,
+   4 equal rows of 28.25u, ticks 30-min=6u / 15-45min=2.5u, fonts scaled ×~1.4
+   so the printed sheet fills a Letter page exactly like the original. */
+function daySVG(idx, d, segs, tq){
+  const X=m=>GX+m/15*CW;
+  const VBW=VB_W, VBH=130;
+  const BAND=17, R1=45.3, R2=73.5, R3=101.8;   // horizontal line ys (rows: BAND-R1-R2-R3-VBH)
+  const ROW_Y = { OFF:(BAND+R1)/2, D:(R1+R2)/2, OND:(R2+R3)/2 };  // 31.2 / 59.4 / 87.7
+  let s='';
+  s+='<svg class="day-svg" viewBox="0 0 '+VBW+' '+VBH+'" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">';
+  /* shading (hardcoded hex: SVG presentation attributes do not support CSS vars) */
+  s+='<rect x="1" y="1" width="'+(VBW-2)+'" height="'+(BAND-1.5)+'" fill="#FBF4DC"/>';
+  [BAND,R1,R2].forEach(y=>{ s+='<rect x="39" y="'+y+'" width="88" height="28.25" fill="#FCF3D9"/>'; });
+  /* hour verticals (through the 3 status rows only — not header, not Remarks) */
+  for(let h=1;h<=23;h++) s+='<line x1="'+(GX+h*27.25)+'" y1="'+BAND+'" x2="'+(GX+h*27.25)+'" y2="'+R3+'" stroke="#000" stroke-width="0.7"/>';
+  /* quarter ticks: 30-min marks clearly longer (6u) than 15/45-min marks (2.5u), per original measurement */
+  for(let q=0;q<=96;q++){
+    if(q%4===0) continue;              // skip hour lines
+    const y2 = (q%4===2) ? BAND+6 : BAND+2.5;
+    s+='<line x1="'+(GX+q*CW)+'" y1="'+BAND+'" x2="'+(GX+q*CW)+'" y2="'+y2+'" stroke="#000" stroke-width="0.6"/>';
+  }
+  /* 24:00 line — runs through the Remarks row (the daily "24" sits in its own
+     cell), but NOT into the header band. */
+  s+='<line x1="'+(GX+GRID_W)+'" y1="'+BAND+'" x2="'+(GX+GRID_W)+'" y2="'+VBH+'" stroke="#000" stroke-width="0.7"/>';
+  /* structure lines — Date-column line rules verified on the original blank form:
+     BAND (header bottom) and R1 (date-cell bottom) cross the Date column (full width);
+     R2/R3 (Driving/OND/Remarks boundaries) START at the Date/Duty separator (x=38) —
+     the Date column below the date number has NO horizontal lines. */
+  [BAND,R1].forEach(y=>{ s+='<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#000" stroke-width="1"/>'; });
+  [R2,R3].forEach(y=>{ s+='<line x1="38" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#000" stroke-width="1"/>'; });
+  /* verticals: Date/Duty separator (x=38, full height) + grid left edge.
+     NO gutter line — the original has none; the stacked weekday letters live
+     inside the Date column below the date cell.
+     The 24:00 line (drawn above) is the Totals left border; the block's outer right
+     border comes from the frame rect below. */
+  [38,GX].forEach(x=>{ s+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+VBH+'" stroke="#000" stroke-width="1"/>'; });
+  s+='<rect x="0.5" y="0.5" width="'+(VBW-1)+'" height="'+(VBH-1)+'" fill="none" stroke="#000" stroke-width="1"/>';
+  /* header texts (labels centered in their columns, per original) */
+  s+='<text x="19" y="13" font-size="11" font-weight="bold" text-anchor="middle">Date</text>';
+  s+='<text x="83" y="13" font-size="11" font-weight="bold" text-anchor="middle">Duty Status</text>';
+  /* hour numbers: ORIGINAL FORM convention - every number 1..24 sits ON its hour line
+     (e.g. "7" centered on the 07:00 vertical line, "24" on the 24:00 line), verified by
+     pixel analysis of the source PDF (digit centers within 5px/600dpi of the lines).
+     Lines do NOT extend into the header band, so no line crosses any digit. */
+  for(let h=1;h<=23;h++) s+='<text x="'+(GX+h*27.25)+'" y="13" font-size="9.5" font-weight="bold" text-anchor="middle">'+h+'</text>';
+  s+='<text x="'+(GX+GRID_W)+'" y="13" font-size="9.5" font-weight="bold" text-anchor="middle">24</text>';
+  s+='<text x="'+TOT_MID+'" y="13" font-size="11" font-weight="bold" text-anchor="middle">Totals</text>';
+  /* weekday name: one letter per line, stacked vertically (M/O/N/D/A/Y), light grey,
+     centered in the Date column below the date cell — spacing adapts to name length
+     (6 letters ~9.6u apart; 9-letter names compress to fill the same region) */
+  const nm=WD_EN[idx], nl=nm.length;
+  const STEP=Math.min(9.6, 70/(nl-1)), span=(nl-1)*STEP;
+  const c0=(R1+VBH)/2 - span/2;
+  for(let i=0;i<nl;i++) s+='<text x="19" y="'+(c0+i*STEP+3.4)+'" font-size="10" fill="#a3a3a3" text-anchor="middle">'+nm.charAt(i)+'</text>';
+  /* date number (sits in the Off-Duty row of the Date column, like the filled sample) */
+  s+='<text x="19" y="36.5" font-size="15" font-weight="bold" text-anchor="middle">'+d.getDate()+'</text>';
+  /* row labels — centered in the Duty Status column per original, except Remarks
+     which is left-aligned near the separator (as measured). "On-Duty-Not Driving"
+     uses the same font size horizontally compressed (condensed), like the original. */
+  s+='<text x="83" y="35" font-size="11" text-anchor="middle">Off-Duty</text>';
+  s+='<text x="83" y="63.2" font-size="11" text-anchor="middle">Driving</text>';
+  s+='<text transform="translate(83,91.5) scale(0.74,1)" font-size="11" text-anchor="middle">On-Duty-Not Driving</text>';
+  s+='<text x="41" y="120" font-size="11">Remarks</text>';
+  /* duty status line (stepped) */
+  if(segs.length){
+    let p='M '+X(segs[0].s)+' '+ROW_Y[segs[0].t];
+    segs.forEach((g,k)=>{ p+=' H '+X(g.e); const nx=segs[k+1]; if(nx && nx.t!==g.t) p+=' V '+ROW_Y[nx.t]; });
+    s+='<path d="'+p+'" fill="none" stroke="#000" stroke-width="1.8" stroke-linejoin="miter"/>';
+  }
+  /* remarks under the grid at their time position */
+  segs.forEach(g=>{ if(g.r) s+='<text x="'+(X(g.s)+2)+'" y="120" font-size="9" font-style="italic">'+esc(g.r)+'</text>'; });
+  /* totals (centered in the Totals column, like the handwritten originals) */
+  s+='<text x="'+TOT_MID+'" y="35" font-size="11" text-anchor="middle">'+fmtH(tq.OFF)+'</text>';
+  s+='<text x="'+TOT_MID+'" y="63.2" font-size="11" text-anchor="middle">'+fmtH(tq.D)+'</text>';
+  s+='<text x="'+TOT_MID+'" y="91.5" font-size="11" text-anchor="middle">'+fmtH(tq.OND)+'</text>';
+  s+='<text x="'+TOT_MID+'" y="120" font-size="11" text-anchor="middle">24</text>';
+  s+='</svg>';
+  return s;
+}
+
+/* ================= render: sheet ================= */
+function renderSheet(){
+  const ws=new Date(state.weekStart+'T00:00:00');
+  const mm=String(ws.getMonth()+1).padStart(2,'0'), yy=ws.getFullYear();
+  let html='';
+  html+='<div class="masthead">'+
+    /* inline SVG logo recreating the School Bus Ontario mark on the original form:
+       trillium-style three-petal icon (orange, two dark slash stripes) + wordmark
+       SCHOOL(dark)BUS(orange) with thin letter-spaced ONTARIO underneath. */
+    '<img class="logo" src="data:image/png;base64,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" alt="School Bus Ontario">'+
+    '<div class="title">HOURS OF SERVICE - RECORD OF DUTY STATUS</div></div>';
+  html+='<div class="subhead"><span class="s-park">Parking Location <span class="fill">'+esc(state.location)+'</span></span><span class="s-cycle">Cycle One - 70/7</span><span class="s-month">Month: <span class="fill sm" style="min-width:59px">'+mm+'</span></span><span class="s-year">Year: <span class="fill sm" style="min-width:68px">'+yy+'</span></span></div>';
+  for(let i=0;i<7;i++){
+    const d=addDays(ws,i);
+    const r=buildSegs(state.days[i], state.weekendOff, i>=5);
+    html+=daySVG(i,d,r.segs,r.tq);
+    if(i===4){
+      html+='<div class="wknd"><span class="wkbox">'+(state.weekendOff?'✗':'')+'</span> Check this box if OFF-DUTY for all of Saturday and Sunday</div>';
+    }
+  }
+  html+='<div class="formfooter"><span>Print Name: <span class="sigline" style="min-width:300px">'+esc(state.driver)+'</span></span>'+
+        '<span>Signature: <span class="sigline sig-holder">'+(state.signature?('<img class="sigimg" src="'+state.signature+'" alt="signature">'):'')+'</span></span></div>';
+  html+='<div class="officecopy">OFFICE COPY</div>';
+  document.getElementById('sheet').innerHTML=html;
+}
+
+/* ================= render: Extra Work sheet ================= */
+/* 复刻 Extra Work Form（半张 letter 的小型周结算表）：Employee → 明细行（不足 5 行补空行，
+   与原表一致）→ TOTAL（灰底格，小时计）→ Employee/Manager 签名行。签名与 HOS 共用。
+   时间用 12 小时制 AM/PM；Employee Number 栏保留设计但留空（工号不录入）。 */
+function renderSheetExtra(){
+  const S=inWeekDates();
+  const rows=state.extra.filter(r=>S.has(r.d)&&r.e>r.s).slice().sort((a,b)=>a.d.localeCompare(b.d)||a.s-b.s);
+  let body='';
+  rows.forEach(r=>{
+    body+='<tr><td>'+fd(r.d)+'</td><td>'+esc(r.desc)+'</td><td style="text-align:center">'+fmtT12(r.s)+'</td><td style="text-align:center">'+fmtT12(r.e)+'</td><td style="text-align:center">'+fmtHrs(r.e-r.s)+'</td></tr>';
+  });
+  for(let i=rows.length;i<5;i++) body+='<tr><td></td><td></td><td></td><td></td><td></td></tr>';
+  const total=rows.reduce((a,r)=>a+(r.e-r.s),0);
+  const sig=state.signature? '<img class="sigimg" src="'+state.signature+'" alt="signature">' : '';
+  document.getElementById('sheetExtra').innerHTML=
+    '<div class="xw-title">Extra Work Form</div>'+
+    '<table class="xw">'+
+    '<colgroup><col style="width:13%"><col style="width:42%"><col style="width:17%"><col style="width:16%"><col style="width:12%"></colgroup>'+
+    '<tr><td class="xemp" colspan="2">Employee: <span class="xname">'+esc(state.driver)+'</span></td>'+
+    '<td class="xemp" colspan="3">Employee Number: <span class="xname"></span></td></tr>'+
+    '<tr><th>Date</th><th>Description of Additional work</th><th>Start time</th><th>End time</th><th>Total Hours</th></tr>'+
+    body+
+    '<tr><td colspan="4" class="xtotlab">TOTAL of all Hours</td><td class="xgray">'+fmtHrs(total)+'</td></tr>'+
+    '<tr><td colspan="5" class="xsig">Employee&rsquo;s Signature <span class="sigline sig-holder" style="min-width:220px">'+sig+'</span></td></tr>'+
+    '<tr><td colspan="5" class="xsig">Manager&rsquo;s Signature</td></tr>'+
+    '</table>';
+}
+
+/* ================= render: editors ================= */
+function cardHTML(i){
+  const ws=new Date(state.weekStart+'T00:00:00');
+  const d=addDays(ws,i);
+  const r=buildSegs(state.days[i], state.weekendOff, i>=5);
+  const h='<span class="sum">行车 '+fmtHn(r.tq.D)+'h · 工作(未驾驶) '+fmtHn(r.tq.OND)+'h · 休班 '+fmtHn(r.tq.OFF)+'h</span>';
+  const w=r.warns.length? '<span class="warn">⚠ '+esc(r.warns[0])+'</span>' : '';
+  let body='';
+  if(state.weekendOff && i>=5){
+    body='<div class="offnote">已勾选「周六/周日全天休班」——本日整条线自动画在 Off-Duty 行（24h）。如需编辑，请先取消顶栏勾选。</div>';
+  }else{
+    const rows=(state.days[i].periods||[]).map((p,origIdx)=>({p,origIdx})).sort((a,b)=>a.p.s-b.p.s||a.p.e-b.p.e).map(({p,origIdx})=>
+      '<tr data-i="'+origIdx+'">'+
+      '<td><select data-f="t">'+Object.keys(TYPE_LABEL).map(t=>'<option value="'+t+'"'+(p.t===t?' selected':'')+'>'+TYPE_LABEL[t]+'</option>').join('')+'</select></td>'+
+      '<td><select data-f="s">'+TIME_OPTS.replace(new RegExp('value="'+p.s+'"','g'),'value="'+p.s+'" selected')+'</select></td>'+
+      '<td><select data-f="e">'+TIME_OPTS.replace(new RegExp('value="'+p.e+'"','g'),'value="'+p.e+'" selected')+'</select></td>'+
+      '<td><input class="rk" data-f="r" value="'+esc(p.r)+'" placeholder="pre-trip / yard-mech / fuel…"></td>'+
+      '<td><button class="mini red" data-act="del" data-i="'+origIdx+'">✕</button></td>'+
+      '</tr>').join('');
+    body='<table class="pd"><thead><tr><th>状态类型</th><th>开始</th><th>结束</th><th>备注（选填）</th><th></th></tr></thead><tbody>'+(rows||'')+'</tbody></table>'+
+      '<div class="chips">'+
+      '<button class="chip" data-act="quick" data-t="OND" data-r="pre-trip" data-dur="30">+ pre-trip</button>'+
+      '<button class="chip" data-act="quick" data-t="D" data-r="" data-dur="60">+ driving</button>'+
+      '<button class="chip" data-act="quick" data-t="OND" data-r="fuel" data-dur="15">+ fuel</button>'+
+      '<button class="chip" data-act="quick" data-t="OND" data-r="yard-mech" data-dur="15">+ yard-mech</button>'+
+      '</div>'+
+      '<div class="rowbtns">'+
+      '<button class="mini" data-act="add">＋ 添加时段</button>'+
+      (i>0?'<button class="mini gray" data-act="copy">⧉ 复制前一天</button>':'')+
+      '<button class="mini gray" data-act="clear">清空本日</button>'+
+      '</div>';
+  }
+  const todayIdx = (()=>{ const t=iso(new Date()); return state.days.findIndex(dd=>dd.date===t); })();
+  const isToday = (i===todayIdx);
+  // 今天默认展开；用户手动展开过的天（expandedDays）也保持展开——避免 renderAll 重建后把刚展开的天又折回去
+  const collapsed = (isToday || expandedDays.has(i)) ? '' : ' collapsed';
+  return '<div class="daycard'+collapsed+'" data-day="'+i+'"><h3>'+(d.getMonth()+1)+'月'+d.getDate()+'日 · '+WD_CN[i]+h+w+'<span class="caret">▼</span></h3><div class="cardbody">'+body+'</div></div>';
+}
+function renderEditors(){
+  renderEdHos();
+  renderEdExtra();
+}
+function renderEdHos(){
+  let html='<div class="edithd">▼ 每日时段编辑（改动实时同步到预览表）</div>';
+  // 全局快捷录入条：司机每天高频动作是「选事项 + 时间」，无需展开每个日卡
+  html+='<div class="quickbar"><div class="qtitle">⚡ 快捷录入（写入当天）</div><div class="qrow">'+
+    '<label>事项<select id="qType">'+
+      '<option value="OND|30|pre-trip">+pre-trip</option>'+
+      '<option value="D|60|driving">+driving</option>'+
+      '<option value="OND|15|fuel">+fuel</option>'+
+      '<option value="OND|15|yard-mech">+yard-mech</option>'+
+    '</select></label>'+
+    '<label>开始<select id="qStart">'+TIME_OPTS+'</select></label>'+
+    '<label>结束<select id="qEnd">'+TIME_OPTS+'</select></label>'+
+    '<button class="btn" id="qAdd">＋ 加入当天</button>'+
+    '</div></div>';
+  for(let i=0;i<7;i++) html+=cardHTML(i);
+  document.getElementById('edHos').innerHTML=html;
+  // 快捷条默认时间：接续当天最后一段
+  const tIdx=(()=>{ const t=iso(new Date()); return state.days.findIndex(dd=>dd.date===t); })();
+  const ti=(tIdx>=0)?tIdx:0;
+  const mx=chainStart(state.days[ti]);
+  const qs=document.getElementById('qStart'), qe=document.getElementById('qEnd');
+  if(qs){ qs.value=mx; qe.value=Math.min(mx+60,1440); }
+}
+/* Extra Work 编辑器：按周明细行（日期/事项下拉+描述录入框/开始/结束），合计自动算（小时） */
+function renderEdExtra(){
+  const S=inWeekDates();
+  const items=state.extra.map((r,idx)=>({r,idx})).filter(x=>S.has(x.r.d));
+  items.sort((a,b)=>a.r.d.localeCompare(b.r.d)||a.r.s-b.r.s);
+  const total=items.reduce((a,x)=>a+(x.r.e>x.r.s?x.r.e-x.r.s:0),0);
+  let html='<div class="edithd">▼ Extra Work 明细（10 分钟间隔，只显示本周；换周数据自动保留）</div>';
+  html+='<div class="quickbar"><div class="qtitle">本周合计：<b>'+fmtHrs(total)+'</b> 小时（'+items.length+' 笔）</div></div>';
+  if(!items.length){
+    html+='<div class="offnote">本周暂无 Extra Work 记录。点下方「＋ 添加」新增一笔，在 Description 录入框填写事项（如 Morning Run / Afternoon Run）。</div>';
+  }else{
+    html+='<table class="pd"><thead><tr><th>日期</th><th>Description of Additional work</th><th>开始</th><th>结束</th><th>合计</th><th></th></tr></thead><tbody>';
+    items.forEach(x=>{
+      const r=x.r, k=x.idx;
+      html+='<tr>'+
+        '<td><select data-x="d" data-k="'+k+'">'+dayOptsX(r.d)+'</select></td>'+
+        '<td><input class="rk" data-x="desc" data-k="'+k+'" value="'+esc(r.desc)+'" placeholder="录入描述（如 Morning Run / Afternoon Run）"></td>'+
+        '<td><select data-x="s" data-k="'+k+'">'+selOpts(XTIME_OPTS,r.s)+'</select></td>'+
+        '<td><select data-x="e" data-k="'+k+'">'+selOpts(XTIME_OPTS,r.e)+'</select></td>'+
+        '<td style="text-align:center;white-space:nowrap">'+(r.e>r.s?fmtHrs(r.e-r.s):'—')+'</td>'+
+        '<td><button class="mini red" data-xact="xdel" data-k="'+k+'">✕</button></td>'+
+        '</tr>';
+    });
+    html+='</tbody></table>';
+  }
+  html+='<div class="rowbtns">'+
+    '<button class="mini" data-xact="xadd">＋ 添加 Extra 时段</button>'+
+    '<button class="mini gray" data-xact="xclear">清空本周 Extra</button>'+
+    '</div>';
+  document.getElementById('edExtra').innerHTML=html;
+}
+function dayOptsX(cur){
+  const ws=new Date(state.weekStart+'T00:00:00');
+  let o='';
+  for(let i=0;i<7;i++){ const d=addDays(ws,i), ds=iso(d);
+    o+='<option value="'+ds+'"'+(cur===ds?' selected':'')+'>'+WD_CN[i]+' '+(d.getMonth()+1)+'/'+d.getDate()+'</option>'; }
+  return o;
+}
+/* 在 option 串里给指定 value 打 selected（TIME_OPTS/XTIME_OPTS 是常量串，避免每次重建） */
+function selOpts(opts,v){ return opts.replace(new RegExp('value="'+v+'"','g'),'value="'+v+'" selected'); }
+function renderAll(){ renderSheet(); renderSheetExtra(); renderEditors(); }
+
+/* update one card's summary/warning without rebuilding (keeps focus while typing) */
+function updateCardSum(i){
+  const card=document.querySelector('.daycard[data-day="'+i+'"]'); if(!card) return;
+  const r=buildSegs(state.days[i], state.weekendOff, i>=5);
+  const sum=card.querySelector('.sum'), warn=card.querySelector('.warn');
+  if(sum) sum.textContent='行车 '+fmtHn(r.tq.D)+'h · 工作(未驾驶) '+fmtHn(r.tq.OND)+'h · 休班 '+fmtHn(r.tq.OFF)+'h';
+  if(warn) warn.textContent=r.warns.length? '⚠ '+r.warns[0] : '';
+}
+
+/* ================= actions ================= */
+function chainStart(day){ const ps=day.periods||[]; let mx=405; ps.forEach(p=>{ if(p.e>mx) mx=p.e; }); return mx; }
+function addPeriod(i,t,r,dur){
+  const day=state.days[i];
+  const mx=chainStart(day);
+  if(mx>=1440){ alert('当天 24:00 前已排满，无法再添加时段。'); return; }
+  const s=Math.min(mx,1425), e=Math.min(s+dur,1440);
+  day.periods.push({t, s, e, r:r||''});
+}
+function fillExample(){
+  const pre={t:'OND',s:405,e:420,r:'pre-trip'};
+  const plan=[
+    [pre, {t:'D',s:420,e:570,r:''}, {t:'D',s:840,e:975,r:''}, {t:'OND',s:975,e:990,r:'fuel'}],
+    [pre, {t:'D',s:420,e:570,r:''}, {t:'OND',s:570,e:615,r:'yard-mech'}, {t:'D',s:840,e:975,r:''}],
+    [pre, {t:'D',s:420,e:570,r:''}, {t:'D',s:840,e:960,r:''}, {t:'OND',s:960,e:975,r:'fuel'}],
+    [pre, {t:'D',s:420,e:570,r:''}, {t:'D',s:840,e:975,r:''}],
+    [pre, {t:'D',s:420,e:570,r:''}, {t:'D',s:780,e:900,r:''}],
+  ];
+  plan.forEach((ps,i)=>{ state.days[i].periods=JSON.parse(JSON.stringify(ps)); });
+  for(let i=5;i<7;i++) state.days[i].periods=[];
+  state.weekendOff=true;
+  /* Extra Work 示例：周一早 run 多 20 分钟、周四下午 run 多 30 分钟（描述留空，供用户自填） */
+  const wsd=new Date(state.weekStart+'T00:00:00');
+  state.extra=[
+    {d:iso(addDays(wsd,0)), desc:'', s:430, e:450},
+    {d:iso(addDays(wsd,3)), desc:'', s:940, e:970}
+  ];
+}
+
+function dl(name, content, type){
+  const b=new Blob([content],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+function exportJson(){
+  // 导出干净的备份（剥离内部 _savedAt 字段），文件名带周起始日 + 导出时刻，避免覆盖旧备份
+  const s=JSON.parse(JSON.stringify(state)); delete s._savedAt;
+  const t=new Date(); const p=n=>String(n).padStart(2,'0');
+  const stamp=p(t.getMonth()+1)+p(t.getDate())+'-'+p(t.getHours())+p(t.getMinutes());
+  dl('HOS_'+state.weekStart+'_'+stamp+'.json', JSON.stringify(s,null,2), 'application/json');
+}
+function exportCsv(){
+  const ws=new Date(state.weekStart+'T00:00:00');
+  let out='\uFEFFDate,Weekday,Start,End,Status,Remark\n';
+  for(let i=0;i<7;i++){
+    const d=addDays(ws,i), ds=iso(d);
+    (state.days[i].periods||[]).slice().sort((a,b)=>a.s-b.s).forEach(p=>{
+      out+=[ds,WD_CN[i],fmtT(p.s),fmtT(p.e),'"'+TYPE_EN[p.t]+'"','"'+(p.r||'')+'"'].join(',')+'\n';
+    });
+  }
+  out+='\nDate,Weekday,Off-Duty h,Driving h,On-Duty-Not-Driving h,Total h\n';
+  for(let i=0;i<7;i++){
+    const d=addDays(ws,i), r=buildSegs(state.days[i], state.weekendOff, i>=5);
+    out+=[iso(d),WD_CN[i],fmtHn(r.tq.OFF),fmtHn(r.tq.D),fmtHn(r.tq.OND),'24'].join(',')+'\n';
+  }
+  dl('HOS_'+state.weekStart+'.csv', out, 'text/csv;charset=utf-8');
+}
+
+/* ================= events ================= */
+document.getElementById('btnPrint').addEventListener('click',()=>window.print());
+document.getElementById('btnExample').addEventListener('click',()=>{ fillExample(); save(); renderAll(); });
+document.getElementById('btnExportJson').addEventListener('click',exportJson);
+document.getElementById('btnExportCsv').addEventListener('click',exportCsv);
+document.getElementById('btnClear').addEventListener('click',()=>{
+  if(confirm('确定清空本周（7 天）所有已录入时段？')){ state.days.forEach(dd=>dd.periods=[]); save(); renderAll(); }
+});
+
+/* ================= signature ================= */
+(function(){
+  const modal=document.getElementById('sigModal'), cv=document.getElementById('sigCanvas'), ctx=cv.getContext('2d');
+  let drawing=false, hasInk=false;
+  function fit(){ const w=cv.parentElement.clientWidth, h=cv.clientHeight||200; const dpr=window.devicePixelRatio||1;
+    cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.lineWidth=2.6; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#111'; }
+  function pos(e){ const r=cv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }
+  cv.addEventListener('pointerdown',e=>{ e.preventDefault(); drawing=true; hasInk=true; try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+    const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+  cv.addEventListener('pointermove',e=>{ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+  cv.addEventListener('pointerup',e=>{ drawing=false; });
+  cv.addEventListener('pointercancel',()=>{ drawing=false; });  // 来电/通知栏等中断时正常收笔
+  cv.addEventListener('pointerleave',()=>{ if(drawing) drawing=false; });
+  function reset(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height); hasInk=false; fit(); }
+  function open(){ modal.classList.add('open'); fit(); }  // 先显示再测量：display:none 时 clientWidth=0
+  document.getElementById('btnSign').addEventListener('click',open);
+  document.getElementById('btnSigCancel').addEventListener('click',()=>modal.classList.remove('open'));
+  document.getElementById('btnSigClear').addEventListener('click',reset);
+  modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });
+  document.getElementById('btnSigDone').addEventListener('click',()=>{
+    if(!hasInk){ modal.classList.remove('open'); return; }
+    // 裁剪笔迹 bbox（去空白）：否则画布中部的笔迹会被空白"抬高"，贴入后顶进上方日块
+    let out=null;
+    try{
+      const iw=cv.width, ih=cv.height;
+      const d=ctx.getImageData(0,0,iw,ih).data;
+      let x0=iw,y0=ih,x1=-1,y1=-1;
+      for(let y=0;y<ih;y++)for(let x=0;x<iw;x++){
+        if(d[(y*iw+x)*4+3]>10){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+      }
+      if(x1>=0){
+        const pad=2*dprSafe();
+        x0=Math.max(0,x0-pad); y0=Math.max(0,y0-pad); x1=Math.min(iw-1,x1+pad); y1=Math.min(ih-1,y1+pad);
+        const t=document.createElement('canvas'); t.width=x1-x0+1; t.height=y1-y0+1;
+        t.getContext('2d').drawImage(cv,x0,y0,t.width,t.height,0,0,t.width,t.height);
+        out=t.toDataURL('image/png');
+      }
+    }catch(err){}
+    if(!out) out=cv.toDataURL('image/png');
+    if(!out || out.length<200 || !out.startsWith('data:image/png')){ return; }  // 空画布/异常尺寸防护
+    state.signature=out;
+    save(); renderSheet(); modal.classList.remove('open');
+  });
+  function dprSafe(){ return window.devicePixelRatio||1; }
+})();
+document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+      const s=JSON.parse(rd.result);
+      if(!s || !Array.isArray(s.days) || s.days.length!==7) throw new Error('格式不对');
+      state=Object.assign(defaultState(),s);
+      if(!Array.isArray(state.extra)) state.extra=[];
+      state.extra.forEach(r=>{
+        if(r.detail){ r.desc=r.detail; delete r.detail; }
+        delete r.detail;
+        let d=(r.desc||'');
+        d=d.replace(/^(Morning|Afternoon) Running\s*(—|—|[-])\s*/, '');
+        if(d==='Morning Running') d='Morning Run';
+        else if(d==='Afternoon Running') d='Afternoon Run';
+        if(d==='Morning Run' || d==='Afternoon Run') d='';
+        r.desc=d;
+        delete r.custom;
+      });
+      if(state.mode!=='extra') state.mode='hos';
+      // 导入的旧周 JSON 同样做跨周前滚（若其 weekStart 早于当周周一）
+      const thisMon2 = mondayOf(new Date());
+      if(new Date(state.weekStart+'T00:00:00').getTime() < thisMon2.getTime()){
+        state.weekStart = iso(thisMon2);
+        state.days = Array.from({length:7},(_,i)=>({date:iso(addDays(thisMon2,i)),periods:[]}));
+      }
+      save(); bindToolbar(); switchMode(state.mode); renderAll();
+    }catch(err){ alert('导入失败：'+err.message); } };
+  rd.readAsText(f); e.target.value='';
+});
+
+document.getElementById('weekStart').addEventListener('change',e=>{
+  const v=e.target.value; if(!v) return;
+  const m=mondayOf(new Date(v+'T00:00:00'));
+  const ndays=Array.from({length:7},(_,i)=>({date:iso(addDays(m,i)),periods:[]}));
+  const old={}; state.days.forEach(dd=>old[dd.date]=dd.periods);
+  ndays.forEach(dd=>{ if(old[dd.date]) dd.periods=old[dd.date]; });
+  state.weekStart=iso(m); state.days=ndays; save(); renderAll();
+});
+document.getElementById('driver').addEventListener('input',e=>{ state.driver=e.target.value; save(); renderSheet(); });
+/* 停车地点：选 Other 显示自填框；自填框内容直接写入 state.location */
+const locSel=document.getElementById('location'), locOther=document.getElementById('locationOther');
+function syncLocationUI(){
+  const isOther = locSel.value==='__other__';
+  locOther.style.display = isOther? 'block' : 'none';
+  if(isOther) locOther.value = state.location;   // 回填自填值
+}
+locSel.addEventListener('change',e=>{
+  if(e.target.value==='__other__'){
+    locOther.style.display='block'; locOther.value=''; locOther.focus();
+  }else{
+    locOther.style.display='none'; state.location=e.target.value;
+  }
+  save(); renderSheet();
+});
+locOther.addEventListener('input',e=>{ state.location=e.target.value; save(); renderSheet(); });
+document.getElementById('weekendOff').addEventListener('change',e=>{ state.weekendOff=e.target.checked; save(); renderAll(); });
+
+/* ================= form switch (HOS / Extra Work) ================= */
+function applyPageRule(){
+  /* HOS=Letter 纵向（底边距 5mm 留打印缓冲）；Extra Work=Letter 纵向（表高约半张，一张纸可放两张） */
+  document.getElementById('pageRule').textContent = (state.mode==='extra')
+    ? '@page{ size:Letter portrait; margin:10mm 8mm; }'
+    : '@page{ size:Letter portrait; margin:8mm 8mm 5mm; }';
+}
+function switchMode(m, persist){
+  state.mode=m;
+  document.body.classList.toggle('mode-extra', m==='extra');
+  document.getElementById('tabHos').classList.toggle('on', m!=='extra');
+  document.getElementById('tabExtra').classList.toggle('on', m==='extra');
+  document.getElementById('pagehdTitle').textContent = (m==='extra')? 'Extra Work Form' : 'HOS Record Form';
+  // 打印按钮文字随当前页签动态更新，避免「打印的是哪张表」的困惑
+  document.getElementById('btnPrint').textContent = (m==='extra')? '🖨 打印 Extra Work 表' : '🖨 打印 HOS 表';
+  // <title> 随页签更新，使「另存为 PDF」默认文件名匹配当前表单；加日期避免覆盖历史 PDF
+  const today = new Date();
+  const dateStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  document.title = (m==='extra')? ('Extra Work Form '+dateStr) : ('HOS Record Form '+dateStr);
+  applyPageRule();
+  if(persist) save();
+}
+document.getElementById('tabHos').addEventListener('click',()=>switchMode('hos',true));
+document.getElementById('tabExtra').addEventListener('click',()=>switchMode('extra',true));
+
+/* delegated events for editors */
+const editorsEl=document.getElementById('editors');
+editorsEl.addEventListener('change',e=>{
+  const el=e.target; const card=el.closest('.daycard'); if(!card) return;
+  const i=+card.dataset.day;
+  if(el.matches('select[data-f]') && el.closest('tr')){
+    const k=+el.closest('tr').dataset.i;
+    const p=state.days[i].periods[k]; if(!p) return;
+    const f=el.dataset.f;
+    if(f==='t'){ p.t=el.value; } else { p[f]=+el.value; }
+    if(p.e<=p.s){ if(f==='s') p.e=Math.min(p.s+15,1440); else p.s=Math.max(p.e-15,0); }
+    save(); renderAll();
+  }
+});
+editorsEl.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.matches('input.rk')){
+    const card=el.closest('.daycard'); const i=+card.dataset.day;
+    const k=el.closest('tr').dataset.i;
+    const p=state.days[i].periods[k]; if(!p) return;
+    p.r=el.value; save(); renderSheet();
+  }
+});
+editorsEl.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]'); if(!btn) return;
+  const card=btn.closest('.daycard'); const i=+card.dataset.day;
+  const act=btn.dataset.act;
+  if(act==='del'){ state.days[i].periods.splice(+btn.dataset.i,1); save(); renderAll(); }
+  else if(act==='add'){ addPeriod(i,'D','',60); save(); renderAll(); }
+  else if(act==='quick'){ addPeriod(i,btn.dataset.t,btn.dataset.r,+btn.dataset.dur); save(); renderAll(); }
+  else if(act==='copy'){ if(i>0){ state.days[i].periods=JSON.parse(JSON.stringify(state.days[i-1].periods)); save(); renderAll(); } }
+  else if(act==='clear'){ state.days[i].periods=[]; save(); renderAll(); }
+});
+
+/* Extra Work 编辑器事件委托（行内 data-x / data-xact，与 HOS 的 data-f/data-act 互不干扰） */
+editorsEl.addEventListener('change',e=>{
+  const el=e.target; const f=el.dataset && el.dataset.x; if(!f) return;
+  const r=state.extra[+el.dataset.k]; if(!r) return;
+  if(f==='d'){ r.d=el.value; }
+  else if(f==='s'){ r.s=+el.value; if(r.e<=r.s) r.e=Math.min(r.s+10,1430); }
+  else if(f==='e'){ r.e=+el.value; if(r.e<=r.s) r.s=Math.max(r.e-10,0); }
+  save(); renderAll();
+});
+editorsEl.addEventListener('input',e=>{
+  const el=e.target; if(!el.dataset || el.dataset.x!=='desc') return;
+  const r=state.extra[+el.dataset.k]; if(!r) return;
+  r.desc=el.value; delete r.custom; save(); renderSheetExtra();   // 只重绘表单，不重渲编辑器（保持输入焦点）
+});
+editorsEl.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-xact]'); if(!btn) return;
+  const act=btn.dataset.xact;
+  if(act==='xadd'){
+    const t=iso(new Date()), S=inWeekDates();
+    state.extra.push({d:S.has(t)?t:state.weekStart, desc:'', s:420, e:430});
+    save(); renderAll();
+  }
+  else if(act==='xdel'){ state.extra.splice(+btn.dataset.k,1); save(); renderAll(); }
+  else if(act==='xclear'){
+    if(confirm('清空本周的 Extra Work 记录？（其他周的数据保留）')){
+      const S=inWeekDates(); state.extra=state.extra.filter(r=>!S.has(r.d)); save(); renderAll();
+    }
+  }
+});
+
+/* ================= init ================= */
+const LOC_PRESETS=['801 Rodick Rd, Markham, Ont','24 Cardico Dr, Gormley, Ont','479 Edward Ave, Richmond Hill, Ont','5511 Bloomington Rd, Whitchurch-Stouffville, Ont'];
+function bindToolbar(){
+  document.getElementById('weekStart').value=state.weekStart;
+  document.getElementById('driver').value=state.driver;
+  const ls=document.getElementById('location');
+  if(LOC_PRESETS.includes(state.location)){ ls.value=state.location; document.getElementById('locationOther').style.display='none'; }
+  else{ ls.value='__other__'; document.getElementById('locationOther').style.display='block'; document.getElementById('locationOther').value=state.location||''; }
+  document.getElementById('weekendOff').checked=!!state.weekendOff;
+}
+/* 折叠/展开日卡（点标题） */
+editorsEl.addEventListener('click',e=>{
+  const h3=e.target.closest('.daycard h3'); if(!h3) return;
+  const card=h3.closest('.daycard'); const i=+card.dataset.day;
+  card.classList.toggle('collapsed');
+  // 同步记忆展开状态，供 renderAll 重建时保持
+  if(card.classList.contains('collapsed')) expandedDays.delete(i); else expandedDays.add(i);
+});
+/* 全局快捷录入 */
+document.addEventListener('click',e=>{
+  if(e.target.id!=='qAdd') return;
+  const qType=document.getElementById('qType'), qStart=document.getElementById('qStart'), qEnd=document.getElementById('qEnd');
+  if(!qType) return;
+  const [t,,r]=qType.value.split('|');
+  const s=+qStart.value, en=+qEnd.value;
+  if(en<=s){ alert('结束时间须晚于开始时间'); return; }
+  // 目标：当天（无当天则周一）
+  const tIdx=(()=>{ const tt=iso(new Date()); return state.days.findIndex(dd=>dd.date===tt); })();
+  const i=(tIdx>=0)?tIdx:0;
+  // 若当天是周末且勾了休班，先提示
+  if(state.weekendOff && i>=5){ alert('当天为周末休班日，请先在顶栏取消「周六/周日全天休班」勾选'); return; }
+  state.days[i].periods.push({ t, s, e:en, r:r||'' });
+  expandedDays.add(i);   // 加入后展开目标当天（renderAll 重建时保持展开）
+  save(); renderAll();
+  // 展开当天卡片，滚动到可见
+  const card=document.querySelector('.daycard[data-day="'+i+'"]');
+  if(card){ card.scrollIntoView({behavior:'smooth',block:'start'}); }
+});
+load();
+if(new URLSearchParams(location.search).get('demo')==='1') fillExample();
+if(state.mode!=='extra') state.mode='hos';
+bindToolbar();
+switchMode(state.mode);
+renderAll();
+/* 探测本地存储：可用则先落一份初始快照（点亮状态条 + 建立本周备份）；禁用则提示改用导出JSON */
+try{ localStorage.setItem('__probe','1'); localStorage.removeItem('__probe'); save(); }catch(e){}
+flashSaved();   // 载入完成后刷新保存状态指示
+</script>
+</body>
+</html>
